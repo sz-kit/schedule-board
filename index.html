@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>%%OWNER%% 予定入力</title>
+<style>
+  :root {
+    --text: #1a1a1a;  --sub: #6b7280;  --faint: #b4b8bf;
+    --line: #e7e7e9;  --bg: #ffffff;   --soft: #f6f6f7;
+    --sun: #c2410c;   --sat: #1d4ed8;
+    --ok: #18794e;    --ok-bg: #e9f5ee;  --ok-line: #9fd3b5;
+    --adj: #a16207;   --adj-bg: #fdf3dc; --adj-line: #ecc77a;
+    --req: #3949ab;   --req-bg: #eceefa; --req-line: #b7bde8;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    color: var(--text); font-size: 16px; line-height: 1.5;
+  }
+  body.lock { overflow: hidden; }
+  button { font: inherit; color: inherit; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 20px 12px 150px; }
+
+  h1 { font-size: 20px; font-weight: 700; margin: 0 2px; letter-spacing: .02em; }
+  .last { font-size: 13px; color: var(--sub); margin: 2px 2px 12px; }
+  .hint { font-size: 14px; color: var(--sub); margin: 0 2px 14px; }
+
+  /* 月の切り替え */
+  .mnav { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; margin-bottom: 4px; }
+  .mbtn { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: #fff;
+          font-size: 24px; line-height: 1; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .mbtn:disabled { opacity: .25; cursor: default; }
+  .mbtn:not(:disabled):active { background: var(--soft); }
+  .mtitle { text-align: center; font-size: 20px; font-weight: 700; }
+  .mcount { text-align: center; font-size: 12px; color: var(--sub); margin: 0 0 12px; min-height: 18px; }
+  .mcount b.ok { color: var(--ok); } .mcount b.adj { color: var(--adj); }
+
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--sub); margin: 0 2px 8px; }
+  .legend i { font-style: normal; font-weight: 700; margin-right: 3px; }
+  .legend .k-ok i { color: var(--ok); } .legend .k-adj i { color: var(--adj); }
+
+  /* カレンダー */
+  .dows, .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dows { margin-bottom: 4px; }
+  .dows span { text-align: center; font-size: 12px; color: var(--sub); }
+  .dows span:first-child { color: var(--sun); } .dows span:last-child { color: var(--sat); }
+  .cell {
+    position: relative; min-height: 58px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); padding: 4px 0 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start; gap: 0; text-align: center;
+  }
+  button.cell { cursor: pointer; }
+  button.cell:active { transform: scale(.95); }
+  .cell .d { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .cell.sun .d, .cell.hol .d { color: var(--sun); }
+  .cell.sat .d { color: var(--sat); }
+  .cell .mk { font-size: 18px; line-height: 1.2; font-weight: 700; color: #dadce0; }
+  .cell .dot { position: absolute; bottom: 4px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .6; }
+  .cell.st-ok     { background: var(--ok-bg);  border-color: var(--ok-line); }
+  .cell.st-ok .mk { color: var(--ok); }
+  .cell.st-adjust     { background: var(--adj-bg); border-color: var(--adj-line); }
+  .cell.st-adjust .mk { color: var(--adj); }
+  .cell.st-ok .dot { color: var(--ok); } .cell.st-adjust .dot { color: var(--adj); }
+  .cell.today { box-shadow: inset 0 0 0 2px var(--text); }
+  /* スタッフからの出社予定 */
+  .cell.req { background: var(--req); border-color: var(--req); }
+  .cell.req .d { color: #fff !important; }
+  .cell .tag { font-size: 10px; font-weight: 700; line-height: 1.6; }
+  .cell.req .tag { color: #fff; }
+  .cell.resch { border: 1px dashed #c9ccd1; }
+  .cell.resch .tag { color: var(--sub); }
+  .reqbox { border: 1px solid var(--req-line); background: var(--req-bg); border-radius: 14px; padding: 12px 14px; margin: 0 2px 16px; }
+  .reqbox h2 { font-size: 14px; color: var(--req); margin: 0 0 8px; }
+  .reqbox ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .reqbox button { width: 100%; text-align: left; border: 0; background: #fff; border-radius: 10px; padding: 10px 12px; cursor: pointer;
+                   display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+  .reqbox .rd { font-weight: 700; }
+  .reqbox .rn { font-size: 13px; color: var(--sub); }
+  .reqbox .rs { font-size: 12px; font-weight: 700; color: var(--sub); }
+  .legend .k-req i { color: var(--req); }
+  .reqinfo { background: var(--req-bg); border: 1px solid var(--req-line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .reqinfo h3 { margin: 0 0 6px; font-size: 15px; color: var(--req); }
+  .reqinfo p { margin: 0 0 4px; font-size: 14px; }
+  .reqinfo .muted { color: var(--sub); font-size: 13px; }
+  .reqinfo.done { background: var(--soft); border-color: var(--line); }
+  .reqinfo.done h3 { color: var(--sub); }
+  .resch-area { margin-top: 12px; }
+  .resch-area textarea { width: 100%; min-height: 64px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px;
+                         font: inherit; font-size: 16px; resize: none; margin-bottom: 8px; }
+  .btn-warn { width: 100%; min-height: 50px; border-radius: 12px; border: 1.5px solid #e8b4a9; background: #fff;
+              color: #b42318; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-warn.solid { background: #b42318; border-color: #b42318; color: #fff; }
+  .btn-warn:disabled { opacity: .5; }
+  .cell.empty { border-color: transparent; background: transparent; }
+  .cell.past { border-color: transparent; background: transparent; opacity: .4; }
+  .holname { font-size: 12px; color: var(--sun); margin: 8px 2px 0; }
+
+  /* 送信バー */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.96);
+         backdrop-filter: blur(6px); border-top: 1px solid var(--line);
+         padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); z-index: 5; }
+  .bar-in { max-width: 520px; margin: 0 auto; }
+  .summary { font-size: 13px; color: var(--sub); text-align: center; margin-bottom: 8px; }
+  .summary b.ok { color: var(--ok); } .summary b.adj { color: var(--adj); }
+  .summary .dirty { color: var(--text); }
+  .send { width: 100%; min-height: 56px; border: 0; border-radius: 14px; background: var(--text);
+          color: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .send:disabled { background: #d1d5db; color: #fff; cursor: default; }
+  .send.ready { background: #d92d20; box-shadow: 0 4px 14px rgba(217,45,32,.3); }
+  .send.ready:active { background: #b42318; }
+  .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff;
+             border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 選択シート */
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 10;
+              opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; background: #fff;
+           border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,.12);
+           padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+           transform: translateY(105%); transition: transform .22s ease; max-width: 520px; margin: 0 auto;
+           max-height: 88vh; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; }
+  .open .backdrop { opacity: 1; pointer-events: auto; }
+  .open .sheet { transform: translateY(0); }
+  .grab { width: 36px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 10px; }
+  .sh-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+  .sh-title { font-size: 20px; font-weight: 700; }
+  .sh-title small { font-size: 13px; font-weight: 600; color: var(--sun); margin-left: 6px; }
+  .x { border: 0; background: var(--soft); width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; color: var(--sub); flex: none; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .opt { min-height: 72px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; cursor: pointer;
+         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .opt .m { font-size: 24px; font-weight: 700; line-height: 1.1; }
+  .opt .t { font-size: 13px; color: var(--sub); }
+  .opt.o-ok .m { color: var(--ok); } .opt.o-adjust .m { color: var(--adj); } .opt.o-ng .m { color: var(--faint); }
+  .opt.on.o-ok     { background: var(--ok);  border-color: var(--ok); }
+  .opt.on.o-adjust { background: var(--adj); border-color: var(--adj); }
+  .opt.on.o-ng     { background: #6b7280;    border-color: #6b7280; }
+  .opt.on .m, .opt.on .t { color: #fff; }
+  .extra { margin-top: 14px; }
+  .lbl { font-size: 12px; color: var(--sub); margin: 0 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line);
+          background: #fff; font-size: 14px; cursor: pointer; }
+  .chip.on { background: var(--text); border-color: var(--text); color: #fff; }
+  .memo { width: 100%; min-height: 46px; border: 1.5px solid var(--line); border-radius: 12px;
+          padding: 10px 12px; font-size: 16px; background: #fff; }
+  .memo:focus { outline: none; border-color: var(--text); }
+  .sh-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .btn2 { min-height: 50px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff;
+          font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn2.primary { background: var(--text); border-color: var(--text); color: #fff; }
+  .btn2:disabled { opacity: .35; }
+
+  /* 完了画面・トースト */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex;
+             align-items: center; justify-content: center; padding: 20px; z-index: 20; }
+  .done-card { background: #fff; border-radius: 18px; padding: 30px 22px 22px; max-width: 360px; width: 100%; text-align: center; }
+  .done-card .check { width: 56px; height: 56px; border-radius: 50%; background: var(--ok-bg); color: var(--ok);
+                      font-size: 30px; line-height: 56px; margin: 0 auto 10px; font-weight: 700; }
+  .done-card h2 { margin: 0 0 6px; font-size: 20px; }
+  .done-card p { color: var(--sub); margin: 0 0 20px; font-size: 14px; white-space: pre-line; }
+  .toast { position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%); background: #b42318; color: #fff;
+           padding: 12px 16px; border-radius: 12px; font-size: 14px; max-width: 90vw; z-index: 30; }
+  .toast.good { background: var(--text); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="__loading" style="position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:99;font:15px -apple-system,BlinkMacSystemFont,sans-serif;color:#6b7280">読み込み中…</div>
+<div class="wrap">
+  <h1>出社・打ち合わせ可能日</h1>
+  <p class="last" id="last"></p>
+  <p class="hint">日付をタップして出社できる日を選び、社内に共有してください。</p>
+  <section class="reqbox hidden" id="reqbox">
+    <h2>出社予定（スタッフからの依頼・確定）</h2>
+    <ul id="reqlist"></ul>
+  </section>
+  <div class="mnav">
+    <button type="button" class="mbtn" id="prevM" aria-label="前の月">‹</button>
+    <div class="mtitle" id="mtitle"></div>
+    <button type="button" class="mbtn" id="nextM" aria-label="次の月">›</button>
+  </div>
+  <p class="mcount" id="mcount"></p>
+  <div class="legend">
+    <span class="k-ok"><i>◎</i>出社できる</span>
+    <span class="k-adj"><i>△</i>調整すれば可</span>
+    <span><i style="color:#c4c7cc">—</i>不可</span>
+    <span class="k-req"><i>■</i>出社予定</span>
+  </div>
+  <div class="dows"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+  <div class="grid" id="grid"></div>
+  <div id="holnames"></div>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="summary" id="summary"></div>
+    <button type="button" class="send" id="send">社内に出社可能予定を共有する</button>
+  </div>
+</div>
+
+<div id="sheetRoot">
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+    <div class="grab"></div>
+    <div class="sh-head">
+      <div class="sh-title" id="shTitle"></div>
+      <button type="button" class="x" id="shClose" aria-label="閉じる">×</button>
+    </div>
+    <div id="reqinfo"></div>
+    <div class="opts" id="opts"></div>
+    <div class="extra" id="extra">
+      <p class="lbl">補足（任意・複数選択可）</p>
+      <div class="chips" id="chips"></div>
+      <input type="text" class="memo" id="memo" placeholder="メモ（例：14〜16時なら可）">
+    </div>
+    <div class="sh-foot">
+      <button type="button" class="btn2" id="shNext">次の日 ›</button>
+      <button type="button" class="btn2 primary" id="shDone">決定</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="done">
+  <div class="done-card">
+    <div class="check">✓</div>
+    <h2>社内に共有しました</h2>
+    <p id="doneMsg"></p>
+    <button type="button" class="btn2" id="again" style="width:100%">閉じる</button>
+  </div>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script type="text/plain" id="__app">const BOOT = window.__BOOT;
+
+const OPTS = [
+  { key: 'ok',     mark: '◎', text: '出社できる' },
+  { key: 'adjust', mark: '△', text: '調整すれば可' },
+  { key: 'ng',     mark: '—', text: '不可' },
+];
+const MARK = { ok: '◎', adjust: '△', ng: '' };
+const LABEL = { ok: '出社可', adjust: '調整可', ng: '不可' };
+
+// 日付の一覧はブラウザで組み立てる（サーバーからは today・months・祝日・入力済みの日だけ受け取る）
+function buildDays(B) {
+  const W = ['日', '月', '火', '水', '木', '金', '土'];
+  const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  const t = B.today.split('-').map(Number);
+  const start = new Date(Date.UTC(t[0], t[1] - 1, 1));
+  const end = new Date(Date.UTC(t[0], t[1] - 1 + B.months, 1));
+  const out = [];
+  for (const d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, dd = d.getUTCDate();
+    const key = y + '-' + pad(m) + '-' + pad(dd);
+    out.push({ date: key, label: m + '/' + dd, day: dd, dow: W[d.getUTCDay()], dowIndex: d.getUTCDay(),
+               month: y + '-' + pad(m), holiday: B.holidays[key] || '', past: key < B.today });
+  }
+  return out;
+}
+
+const days = buildDays(BOOT);
+const editable = days.filter(function (d) { return !d.past; });
+const BY_DATE = {};
+days.forEach(function (d) { BY_DATE[d.date] = d; });
+let requests = BOOT.requests || {};
+const entries = {};
+days.forEach(function (d) {
+  const e = BOOT.entries[d.date] || {};
+  entries[d.date] = { status: e.status || 'ng', chips: (e.chips || []).slice(), memo: e.memo || '' };
+});
+const months = [];
+days.forEach(function (d) { if (months.indexOf(d.month) < 0) months.push(d.month); });
+
+let monthIdx = 0;
+let current = null;
+let sending = false;
+let dirty = false;
+let toastTimer = null;
+const $ = function (id) { return document.getElementById(id); };
+
+// ---------- 月の切り替え ----------
+function renderTabs() {
+  const m = months[monthIdx].split('-');
+  $('mtitle').textContent = m[0] + '年' + Number(m[1]) + '月';
+  $('prevM').disabled = monthIdx === 0;
+  $('nextM').disabled = monthIdx === months.length - 1;
+  let ok = 0, adj = 0;
+  editable.forEach(function (d) {
+    if (d.month !== months[monthIdx]) return;
+    if (entries[d.date].status === 'ok') ok++;
+    if (entries[d.date].status === 'adjust') adj++;
+  });
+  $('mcount').innerHTML = (ok || adj) ? 'この月：<b class="ok">◎ ' + ok + '日</b>　<b class="adj">△ ' + adj + '日</b>' : '';
+}
+$('prevM').addEventListener('click', function () { if (monthIdx > 0) { monthIdx--; renderAll(); } });
+$('nextM').addEventListener('click', function () { if (monthIdx < months.length - 1) { monthIdx++; renderAll(); } });
+
+// ---------- カレンダー ----------
+function renderGrid() {
+  const m = months[monthIdx];
+  const list = days.filter(function (d) { return d.month === m; });
+  const grid = $('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < list[0].dowIndex; i++) grid.appendChild(blank());
+  list.forEach(function (d) { grid.appendChild(buildCell(d)); });
+
+  const hols = list.filter(function (d) { return d.holiday; });
+  $('holnames').innerHTML = '';
+  hols.forEach(function (d) {
+    const p = document.createElement('p');
+    p.className = 'holname';
+    p.textContent = d.label + ' ' + d.holiday;
+    $('holnames').appendChild(p);
+  });
+}
+
+function blank() {
+  const el = document.createElement('div');
+  el.className = 'cell empty';
+  return el;
+}
+
+function buildCell(d) {
+  const e = entries[d.date];
+  const rq = requests[d.date];
+  const cls = ['cell', 'st-' + e.status];
+  if (rq && rq.state === 'requested') cls.push('req');
+  if (rq && rq.state === 'reschedule') cls.push('resch');
+  if (d.dowIndex === 0) cls.push('sun');
+  if (d.dowIndex === 6) cls.push('sat');
+  if (d.holiday) cls.push('hol');
+  if (d.date === BOOT.today) cls.push('today');
+  let el;
+  if (d.past) {
+    el = document.createElement('div');
+    cls.push('past');
+  } else {
+    el = document.createElement('button');
+    el.type = 'button';
+    el.setAttribute('aria-label', d.label + '（' + d.dow + '）' + (d.holiday ? ' ' + d.holiday : '') + ' ' + LABEL[e.status]);
+    el.addEventListener('click', function () { openSheet(d); });
+  }
+  el.className = cls.join(' ');
+  el.dataset.date = d.date;
+  el.innerHTML = '<span class="d"></span><span class="mk"></span>';
+  el.querySelector('.d').textContent = d.day;
+  el.querySelector('.mk').textContent = MARK[e.status] || '·';
+  if (rq && rq.state === 'requested') {
+    el.querySelector('.mk').outerHTML = '<span class="tag">出社予定</span>';
+  } else if (rq && rq.state === 'reschedule' && e.status === 'ng') {
+    el.querySelector('.mk').outerHTML = '<span class="tag">リスケ</span>';
+  }
+  if (!rq && e.status !== 'ng' && (e.chips.length || e.memo)) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    el.appendChild(dot);
+  }
+  return el;
+}
+
+function refreshCell(d) {
+  const old = document.querySelector('.cell[data-date="' + d.date + '"]');
+  if (old) old.replaceWith(buildCell(d));
+}
+
+function renderAll() { renderTabs(); renderGrid(); renderReqBox(); updateSummary(); }
+
+// ---------- スタッフからの出社予定一覧 ----------
+function topicNames(rq) { return (rq.topics || []).map(function (t) { return t.name + 'さん'; }).join('・'); }
+
+function renderReqBox() {
+  const list = editable.filter(function (d) { return requests[d.date]; });
+  $('reqbox').classList.toggle('hidden', !list.length);
+  const ul = $('reqlist');
+  ul.innerHTML = '';
+  list.forEach(function (d) {
+    const rq = requests[d.date];
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="rd"></span><span class="rn"></span>' + (rq.state === 'reschedule' ? '<span class="rs">リスケ希望を送信済み</span>' : '');
+    b.querySelector('.rd').textContent = d.label + '（' + d.dow + '）';
+    b.querySelector('.rn').textContent = (rq.topics || []).map(function (t) { return t.name + 'さん' + (t.note ? '：' + t.note : ''); }).join(' ／ ');
+    b.addEventListener('click', function () {
+      if (d.month !== months[monthIdx]) { monthIdx = months.indexOf(d.month); renderTabs(); renderGrid(); }
+      openSheet(d);
+    });
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+}
+
+// ---------- 出社予定の表示とリスケ希望 ----------
+function renderReqInfo(d) {
+  const box = $('reqinfo');
+  box.innerHTML = '';
+  box.className = '';
+  const rq = requests[d.date];
+  if (!rq) return false;
+  box.className = 'reqinfo' + (rq.state === 'reschedule' ? ' done' : '');
+  const h = document.createElement('h3');
+  box.appendChild(h);
+  (rq.topics || []).forEach(function (t) {
+    const p = document.createElement('p');
+    p.textContent = '・' + t.name + 'さん' + (t.note ? '：' + t.note : '');
+    box.appendChild(p);
+  });
+
+  if (rq.state === 'reschedule') {
+    h.textContent = 'リスケ希望を送信済み';
+    const m = document.createElement('p');
+    m.className = 'muted';
+    const alts = (rq.alts || []).map(function (a) { const x = BY_DATE[a]; return x ? x.label + '（' + x.dow + '）' : a; });
+    m.textContent = (rq.reason ? '理由：' + rq.reason + '　' : '') +
+      (alts.length ? '代わりの日：' + alts.join('、') + '　' : '') + '社内で調整中です。この日の予定は変更できます。';
+    box.appendChild(m);
+    return false;   // 通常の入力も可能
+  }
+  h.textContent = '出社予定（確定）';
+  const m = document.createElement('p');
+  m.className = 'muted';
+  m.textContent = '返信は不要です。都合が悪くなった場合だけ、下のボタンから他の候補日にリスケしてください。';
+  box.appendChild(m);
+
+  const area = document.createElement('div');
+  area.className = 'resch-area';
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'btn-warn';
+  open.textContent = '出社できる他候補にリスケする';
+  area.appendChild(open);
+  open.addEventListener('click', function () { renderReschForm(d, area); });
+  box.appendChild(area);
+  return true;      // 通常の入力は不可
+}
+
+/** リスケ希望フォーム：理由＋代わりの日（最大3日）を選んで送る */
+function renderReschForm(d, area) {
+  area.innerHTML = '';
+  const picked = [];
+
+  const lbl1 = document.createElement('p');
+  lbl1.className = 'lbl';
+  lbl1.textContent = '他に出社できる候補日を選んでください（3日まで）';
+  lbl1.style.fontWeight = '700';
+  lbl1.style.color = 'var(--text)';
+  area.appendChild(lbl1);
+  const hint = document.createElement('p');
+  hint.className = 'lbl';
+  hint.textContent = '選んだ候補の中から社内が1日に決めて、そのまま確定します。%%OWNER%%の返事は不要です。候補が無い場合は選ばずに送れます。';
+  area.appendChild(hint);
+
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  area.appendChild(chips);
+
+  // 候補：これからの ◎/△ の日（リスケ中の日・この日を除く）から最大12日
+  const cands = editable.filter(function (x) {
+    const rq = requests[x.date];
+    return x.date !== d.date && entries[x.date].status !== 'ng' && !(rq && rq.state === 'reschedule');
+  }).slice(0, 12);
+
+  function drawChips() {
+    chips.innerHTML = '';
+    const all = cands.slice();
+    picked.forEach(function (p) { if (!all.some(function (c) { return c.date === p; }) && BY_DATE[p]) all.push(BY_DATE[p]); });
+    if (!all.length) {
+      const n = document.createElement('p');
+      n.className = 'muted';
+      n.textContent = '出社可能日がありません。下の「その他の日」から選べます。';
+      chips.appendChild(n);
+    }
+    all.forEach(function (x) {
+      const on = picked.indexOf(x.date) >= 0;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (on ? ' on' : '');
+      b.textContent = (on ? '✓ ' : '') + x.label + '（' + x.dow + '）' + (requests[x.date] ? ' 出社予定あり' : '');
+      b.addEventListener('click', function () {
+        const i = picked.indexOf(x.date);
+        if (i >= 0) picked.splice(i, 1);
+        else if (picked.length < 3) picked.push(x.date);
+        else showToast('代わりの日は3日まで選べます');
+        drawChips();
+      });
+      chips.appendChild(b);
+    });
+  }
+  drawChips();
+
+  const other = document.createElement('input');
+  other.type = 'date';
+  other.className = 'memo';
+  other.min = editable.length ? editable[0].date : BOOT.today;
+  other.max = editable.length ? editable[editable.length - 1].date : '';
+  other.setAttribute('aria-label', 'その他の日');
+  other.addEventListener('change', function () {
+    const v = other.value;
+    if (v && BY_DATE[v] && !BY_DATE[v].past && v !== d.date && picked.indexOf(v) < 0) {
+      if (picked.length < 3) picked.push(v); else showToast('代わりの日は3日まで選べます');
+      drawChips();
+    }
+    other.value = '';
+  });
+  const lbl2 = document.createElement('p');
+  lbl2.className = 'lbl';
+  lbl2.textContent = 'その他の日を追加';
+  area.appendChild(lbl2);
+  area.appendChild(other);
+
+  const ta = document.createElement('textarea');
+  ta.placeholder = '理由（任意）例：急な来客対応のため';
+  ta.maxLength = BOOT.memoMax;
+  ta.style.marginTop = '12px';
+  area.appendChild(ta);
+
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'btn-warn solid';
+  go.textContent = 'この候補でリスケする';
+  go.addEventListener('click', function () { sendReschedule(d, ta.value, picked.slice(), go); });
+  area.appendChild(go);
+}
+
+function sendReschedule(d, reason, alts, btn) {
+  btn.disabled = true;
+  btn.textContent = '送信中…';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      requests = res.requests || {};
+      entries[d.date] = { status: 'ng', chips: [], memo: '' };
+      shared[d.date] = '';   // サーバー側でも不可になっている
+      dirty = hasChanges();
+      closeSheet();
+      renderAll();
+      showToast('リスケを社内に伝えました', true);
+    })
+    .withFailureHandler(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'この候補でリスケする';
+      showToast((err && err.message) || '送信できませんでした。もう一度お試しください。');
+    })
+    .requestReschedule(BOOT.token, { date: d.date, reason: reason, alts: alts });
+}
+
+// ---------- 選択シート ----------
+function openSheet(d) {
+  current = d;
+  renderSheet();
+  document.body.classList.add('open', 'lock');
+}
+
+function closeSheet() {
+  if (current) refreshCell(current);
+  current = null;
+  document.body.classList.remove('open', 'lock');
+  $('memo').blur();
+  renderTabs();
+}
+
+function renderSheet() {
+  const d = current;
+  const e = entries[d.date];
+  $('shTitle').innerHTML = '<span></span>' + (d.holiday ? '<small></small>' : '');
+  $('shTitle').firstChild.textContent = d.label + '（' + d.dow + '）';
+  if (d.holiday) $('shTitle').querySelector('small').textContent = d.holiday;
+
+  const lockedDay = renderReqInfo(d);
+  $('opts').classList.toggle('hidden', lockedDay);
+  $('shDone').textContent = lockedDay ? '閉じる' : '決定';
+  if (lockedDay) {
+    $('extra').classList.add('hidden');
+    $('shNext').disabled = !nextOf(d);
+    return;
+  }
+
+  const opts = $('opts');
+  opts.innerHTML = '';
+  OPTS.forEach(function (o) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opt o-' + o.key + (e.status === o.key ? ' on' : '');
+    b.setAttribute('aria-pressed', e.status === o.key ? 'true' : 'false');
+    b.innerHTML = '<span class="m">' + o.mark + '</span><span class="t">' + o.text + '</span>';
+    b.addEventListener('click', function () { setStatus(o.key); });
+    opts.appendChild(b);
+  });
+
+  const showExtra = e.status !== 'ng';
+  $('extra').classList.toggle('hidden', !showExtra);
+  if (showExtra) {
+    const chips = $('chips');
+    chips.innerHTML = '';
+    (BOOT.chips[e.status] || []).forEach(function (c) {
+      const on = e.chips.indexOf(c) >= 0;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (on ? ' on' : '');
+      b.textContent = (on ? '✓ ' : '') + c;
+      b.addEventListener('click', function () { toggleChip(c); });
+      chips.appendChild(b);
+    });
+    $('memo').value = e.memo;
+  }
+  $('shNext').disabled = !nextOf(d);
+}
+
+function setStatus(key) {
+  const e = entries[current.date];
+  if (e.status !== key) {
+    e.status = key;
+    const allowed = BOOT.chips[key] || [];
+    e.chips = e.chips.filter(function (c) { return allowed.indexOf(c) >= 0; });
+    markDirty();
+  }
+  if (key === 'ng') { closeSheet(); return; }
+  renderSheet();
+  refreshCell(current);
+}
+
+function toggleChip(c) {
+  const e = entries[current.date];
+  const i = e.chips.indexOf(c);
+  if (i >= 0) e.chips.splice(i, 1); else e.chips.push(c);
+  markDirty();
+  renderSheet();
+  refreshCell(current);
+}
+
+function nextOf(d) {
+  const i = editable.indexOf(d);
+  return i >= 0 && i < editable.length - 1 ? editable[i + 1] : null;
+}
+
+$('memo').maxLength = BOOT.memoMax;
+$('memo').addEventListener('input', function () {
+  if (!current) return;
+  entries[current.date].memo = $('memo').value;
+  markDirty();
+});
+$('backdrop').addEventListener('click', closeSheet);
+$('shClose').addEventListener('click', closeSheet);
+$('shDone').addEventListener('click', closeSheet);
+$('shNext').addEventListener('click', function () {
+  const n = nextOf(current);
+  refreshCell(current);
+  if (!n) { closeSheet(); return; }
+  if (n.month !== months[monthIdx]) { monthIdx = months.indexOf(n.month); renderTabs(); renderGrid(); }
+  current = n;
+  renderSheet();
+});
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && current) closeSheet(); });
+
+// ---------- 集計・送信 ----------
+// 最後に共有した状態（ここと比べて違いがあるときだけ共有ボタンを押せる）
+function entryKey(e) { return e.status === 'ng' ? '' : e.status + '|' + e.chips.join(',') + '|' + e.memo; }
+let shared = {};
+function takeSnapshot() {
+  shared = {};
+  editable.forEach(function (d) { shared[d.date] = entryKey(entries[d.date]); });
+}
+function hasChanges() {
+  return editable.some(function (d) { return shared[d.date] !== entryKey(entries[d.date]); });
+}
+
+function markDirty() { dirty = hasChanges(); updateSummary(); }
+
+function updateSummary() {
+  let ok = 0, adj = 0;
+  editable.forEach(function (d) {
+    if (entries[d.date].status === 'ok') ok++;
+    if (entries[d.date].status === 'adjust') adj++;
+  });
+  $('summary').innerHTML = '<b class="ok">◎ ' + ok + '日</b>　<b class="adj">△ ' + adj + '日</b>' +
+    (dirty ? '　<span class="dirty">・まだ共有していない変更があります</span>' : '　<span>・変更すると共有できます</span>');
+  $('last').textContent = BOOT.lastSubmittedAt ? '前回送信：' + BOOT.lastSubmittedAt : 'まだ送信されていません';
+  updateSendBtn();
+}
+
+function updateSendBtn() {
+  const b = $('send');
+  b.disabled = sending || !dirty;
+  b.classList.toggle('ready', dirty && !sending);
+}
+
+function showToast(msg, good) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('good', !!good);
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 5000);
+}
+
+function setSending(on) {
+  sending = on;
+  $('send').innerHTML = on ? '<span class="spinner"></span>共有中…' : '社内に出社可能予定を共有する';
+  updateSendBtn();
+}
+
+function send() {
+  if (sending) return;
+  if (current) closeSheet();
+  setSending(true);
+  const payload = {};
+  // ◎/△ の日だけ送る（送らなかった日はサーバー側で「不可」として扱う）
+  editable.forEach(function (d) { if (entries[d.date].status !== 'ng') payload[d.date] = entries[d.date]; });
+
+  // 送信中にページが閉じられた／アプリが切り替えられた場合は、閉じても届く方法で送り直す
+  // （同じ内容が2回届いてもサーバー側は「変更なし」になるだけなので安全）
+  const body = JSON.stringify({ action: 'share', token: BOOT.token, entries: payload });
+  let fallbackSent = false;
+  function fallback() {
+    if (fallbackSent || !sending || !BOOT.postUrl) return;
+    fallbackSent = true;
+    // Googleのログイン情報を送らない fetch(keepalive) を優先（複数アカウントログイン時の不具合を避ける）
+    try {
+      fetch(BOOT.postUrl, { method: 'POST', mode: 'no-cors', keepalive: true, credentials: 'omit',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: body });
+    } catch (err) {
+      try { navigator.sendBeacon && navigator.sendBeacon(BOOT.postUrl, new Blob([body], { type: 'text/plain;charset=UTF-8' })); } catch (e2) { /* 送れなかった */ }
+    }
+  }
+  function onHidden() { if (document.visibilityState === 'hidden') fallback(); }
+  window.addEventListener('pagehide', fallback);
+  document.addEventListener('visibilitychange', onHidden);
+  function cleanup() {
+    window.removeEventListener('pagehide', fallback);
+    document.removeEventListener('visibilitychange', onHidden);
+  }
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      cleanup();
+      BOOT.lastSubmittedAt = res.lastSubmittedAt;
+      if (res.requests) requests = res.requests;
+      if (res.entries) {
+        Object.keys(res.entries).forEach(function (k) { if (entries[k]) entries[k] = res.entries[k]; });
+      }
+      takeSnapshot();
+      dirty = false;
+      setSending(false);
+      renderAll();
+      let msg;
+      if (res.changes === 0) msg = '前回から変更はありませんでした。';
+      else if (res.slack === 'failed') msg = res.changes + '日分の変更を保存しました。（社内への通知は失敗しました）';
+      else msg = res.changes + '日分の変更を社内に共有しました。';
+      if (res.locked) msg += '\n※出社予定が入っている日は変更されていません（リスケは日付をタップ）。';
+      $('doneMsg').textContent = msg;
+      $('done').classList.remove('hidden');
+    })
+    .withFailureHandler(function (err) {
+      cleanup();
+      setSending(false);
+      const m = (err && err.message) || '';
+      showToast(m.indexOf('認証') >= 0
+        ? 'URLが無効になっています。担当者に最新のURLを確認してください。'
+        : '送信できませんでした。電波の良い場所でもう一度お試しください。');
+    })
+    .saveSchedule(BOOT.token, { entries: payload });
+}
+
+$('send').addEventListener('click', send);
+$('again').addEventListener('click', function () { $('done').classList.add('hidden'); });
+window.addEventListener('beforeunload', function (ev) {
+  if (dirty && !sending) { ev.preventDefault(); ev.returnValue = ''; }
+});
+
+takeSnapshot();
+renderAll();
+</script>
+<script>
+(function () {
+  var API = "https://script.google.com/macros/s/AKfycbwKvUZNM6YfXyreFJRVLxA4l7dqhc5ZMX7E0hwwbYTvk_5cxXfd7CjVYVltawC1C98l/exec";
+  var PARAM = "token";
+  var PH = "%%OWNER%%";
+
+  function fail(msg) {
+    var el = document.getElementById('__loading');
+    el.innerHTML = '<div style="max-width:420px;padding:24px;text-align:center;line-height:1.7">' +
+      '<div style="font-size:40px">🔒</div><p>' + msg + '</p></div>';
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // google.script.run と同じ書き方で GAS の関数を呼べるようにする（ログイン情報は送らない）
+  function call(fn, args, ok, ng) {
+    fetch(API, {
+      method: 'POST', credentials: 'omit', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ action: 'call', fn: fn, args: args })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res && res.ok) ok(res.result); else ng({ message: (res && res.error) || 'エラーが発生しました' });
+    }).catch(function () { ng({ message: '通信できませんでした。電波の良い場所でもう一度お試しください。' }); });
+  }
+  function runner() {
+    var ok = function () {}, ng = function () {};
+    var chain = new Proxy({}, { get: function (_, k) {
+      if (k === 'withSuccessHandler') return function (f) { ok = f; return chain; };
+      if (k === 'withFailureHandler') return function (f) { ng = f; return chain; };
+      return function () { call(k, Array.prototype.slice.call(arguments), ok, ng); };
+    } });
+    return chain;
+  }
+  window.google = { script: { run: new Proxy({}, { get: function (_, k) { return runner()[k]; } }) } };
+
+  var key = new URLSearchParams(location.search).get(PARAM);
+  if (!key) { fail('URLが正しくありません。担当者に最新のURLを確認してください。'); return; }
+
+  fetch(API + '?api=state&' + PARAM + '=' + encodeURIComponent(key), { credentials: 'omit', redirect: 'follow' })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (!res || !res.ok) {
+        fail(res && res.error === 'auth' ? 'このページは開けません。URLが正しくないか、無効になっています。' : '読み込みに失敗しました。再読み込みしてください。');
+        return;
+      }
+      var owner = esc(res.state.ownerName || '');
+      document.title = document.title.split(PH).join(res.state.ownerName || '');
+      document.body.innerHTML = document.body.innerHTML.split(PH).join(owner);
+      window.__BOOT = res.state;
+      var app = document.createElement('script');
+      app.text = document.getElementById('__app').textContent;
+      document.body.appendChild(app);
+      var l = document.getElementById('__loading');
+      if (l) l.parentNode.removeChild(l);
+    })
+    .catch(function () { fail('読み込めませんでした。電波の良い場所で再読み込みしてください。'); });
+})();
+</script>
+</body>
+</html>

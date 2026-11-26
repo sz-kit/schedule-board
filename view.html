@@ -5,7 +5,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>%%OWNER%%の出社予定</title>
+<title>出社予定</title>
+<meta name="description" content="出社可能日の確認と、出社の依頼ができる社内向けページです。">
+<meta property="og:title" content="出社予定">
+<meta property="og:description" content="出社可能日の確認と、出社の依頼ができる社内向けページです。">
+<meta property="og:type" content="website">
 <style>
   :root {
     --text: #1a1a1a;  --sub: #6b7280;  --faint: #b4b8bf;
@@ -466,6 +470,7 @@ renderMonth();
   var API = "https://script.google.com/macros/s/AKfycbwKvUZNM6YfXyreFJRVLxA4l7dqhc5ZMX7E0hwwbYTvk_5cxXfd7CjVYVltawC1C98l/exec";
   var PARAM = "view";
   var PH = "%%OWNER%%";
+  var SUFFIX = "の出社予定";
 
   function fail(msg) {
     var el = document.getElementById('__loading');
@@ -510,7 +515,7 @@ renderMonth();
         return;
       }
       var owner = esc(res.state.ownerName || '');
-      document.title = document.title.split(PH).join(res.state.ownerName || '');
+      document.title = (res.state.ownerName || '') + SUFFIX;
       document.body.innerHTML = document.body.innerHTML.split(PH).join(owner);
       window.__BOOT = res.state;
       var app = document.createElement('script');
